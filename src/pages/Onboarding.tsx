@@ -20,7 +20,7 @@ const SPLIT_OPTIONS: { value: SplitName; emoji: string }[] = [
 ];
 
 export default function Onboarding() {
-  const { completeOnboarding, setApiKey } = useStore();
+  const { completeOnboarding } = useStore();
 
   const [step, setStep] = useState(0);
 
