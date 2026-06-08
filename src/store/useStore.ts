@@ -147,7 +147,7 @@ export const useStore = create<AppState>()(
       todayPlan: null,
       activeWorkout: null,
       chatHistory: [],
-      apiKey: '',
+      apiKey: import.meta.env.VITE_GROQ_API_KEY || '',
       isGenerating: false,
 
       completeOnboarding: (profile) => set({

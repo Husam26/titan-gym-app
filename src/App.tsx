@@ -23,7 +23,7 @@ const App: React.FC = () => {
   // Show active workout screen if a workout is in progress
   if (activeWorkout) {
     return (
-      <div className="h-screen flex flex-col bg-bg">
+      <div className="h-[100dvh] flex flex-col bg-bg">
         <ActiveWorkout onComplete={() => setActivePage('today')} />
       </div>
     );
@@ -55,7 +55,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-bg relative overflow-hidden">
+    <div className="h-[100dvh] flex flex-col bg-bg relative overflow-hidden">
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
