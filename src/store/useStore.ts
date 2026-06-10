@@ -277,12 +277,48 @@ export const useStore = create<AppState>()(
   )
 );
 
-// ─── Helper: Get today's split day ────────────────────────────────────
+// ─── Helper: Get today's split day (Smart Rotation) ───────────────────
+// Instead of rigid weekday mapping, we look at what the user's LAST
+// completed workout was and determine what comes NEXT in the split.
+// This handles missed days properly — if you miss Pull, it stays Pull
+// until you do it, rather than skipping to Legs.
 export function getTodayLabel(split: string[]): string {
-  const dayIndex = new Date().getDay(); // 0=Sun, 1=Mon...
-  // Map: Mon=0, Tue=1, ... Sun=6
+  const history = useStore.getState().workoutHistory;
+
+  // Filter out rest days from split to get the training cycle
+  const trainingDays = split.filter(d => d.toLowerCase() !== 'rest');
+  if (trainingDays.length === 0) return 'Rest';
+
+  // If today is a rest day in the schedule, still show rest
+  const dayIndex = new Date().getDay();
   const mappedIndex = dayIndex === 0 ? 6 : dayIndex - 1;
-  return split[mappedIndex] || 'Rest';
+  const scheduledDay = split[mappedIndex] || 'Rest';
+  if (scheduledDay.toLowerCase() === 'rest') return 'Rest';
+
+  // If no history yet, suggest the first training day
+  if (history.length === 0) return trainingDays[0];
+
+  // Find the last workout's position in the training cycle
+  const lastWorkout = history[0]; // most recent
+  const lastDayLabel = lastWorkout.dayLabel;
+  const lastIdx = trainingDays.findIndex(
+    d => d.toLowerCase() === lastDayLabel.toLowerCase()
+  );
+
+  // If last workout was today already, suggest same day (they might want to redo)
+  const lastDate = new Date(lastWorkout.date);
+  const today = new Date();
+  const isSameDay = lastDate.toDateString() === today.toDateString();
+  if (isSameDay) return lastDayLabel;
+
+  // Determine next day in the cycle
+  if (lastIdx === -1) {
+    // Last workout label not found in current split (maybe they changed split)
+    return trainingDays[0];
+  }
+
+  const nextIdx = (lastIdx + 1) % trainingDays.length;
+  return trainingDays[nextIdx];
 }
 
 // ─── Helper: Get last session for a muscle group ──────────────────────
