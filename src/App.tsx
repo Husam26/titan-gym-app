@@ -7,24 +7,63 @@ import { Chat } from './pages/Chat';
 import { History } from './pages/History';
 import { Settings } from './pages/Settings';
 import { Analytics } from './pages/Analytics';
-import { MessageCircle, Clock, Settings as SettingsIcon, Home, BarChart } from 'lucide-react';
+import { WorkoutSummary } from './pages/WorkoutSummary';
+import { MessageCircle, Clock, Settings as SettingsIcon, Home, BarChart, Dumbbell } from 'lucide-react';
+import type { ExerciseLog } from './store/useStore';
 
 type Page = 'today' | 'chat' | 'history' | 'settings' | 'analytics';
 
 const App: React.FC = () => {
   const { hasOnboarded, activeWorkout } = useStore();
   const [activePage, setActivePage] = useState<Page>('today');
+  const [isWorkoutMinimized, setIsWorkoutMinimized] = useState(false);
+  const [completedWorkout, setCompletedWorkout] = useState<{
+    exercises: ExerciseLog[];
+    dayLabel: string;
+    duration: number;
+  } | null>(null);
 
   // Show onboarding for first-time users
   if (!hasOnboarded) {
     return <Onboarding />;
   }
 
-  // Show active workout screen if a workout is in progress
-  if (activeWorkout) {
+  // Show workout summary screen after completion
+  if (completedWorkout) {
+    return (
+      <WorkoutSummary
+        exercises={completedWorkout.exercises}
+        dayLabel={completedWorkout.dayLabel}
+        duration={completedWorkout.duration}
+        onDone={() => {
+          setCompletedWorkout(null);
+          setActivePage('today');
+        }}
+      />
+    );
+  }
+
+  // Show active workout screen (full screen, not minimized)
+  if (activeWorkout && !isWorkoutMinimized) {
     return (
       <div className="h-[100dvh] flex flex-col bg-bg">
-        <ActiveWorkout onComplete={() => setActivePage('today')} />
+        <ActiveWorkout
+          onComplete={() => {
+            // Capture workout data before it gets cleared
+            const startTime = new Date(activeWorkout.startedAt).getTime();
+            const duration = Math.round((Date.now() - startTime) / 60000);
+            const exercises = activeWorkout.exercises
+              .filter(e => e.sets.length > 0)
+              .map(e => ({ name: e.name, sets: e.sets }));
+
+            setCompletedWorkout({
+              exercises,
+              dayLabel: activeWorkout.dayLabel,
+              duration,
+            });
+          }}
+          onMinimize={() => setIsWorkoutMinimized(true)}
+        />
       </div>
     );
   }
@@ -56,6 +95,22 @@ const App: React.FC = () => {
 
   return (
     <div className="h-[100dvh] flex flex-col bg-bg relative overflow-hidden">
+
+      {/* Floating resume banner when workout is minimized */}
+      {activeWorkout && isWorkoutMinimized && (
+        <button
+          onClick={() => setIsWorkoutMinimized(false)}
+          className="mx-4 mt-2 flex items-center gap-3 px-4 py-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl animate-fade-in active:scale-[0.98] transition-transform"
+        >
+          <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center animate-pulse">
+            <Dumbbell className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-emerald-400 text-sm font-semibold">Workout in progress</p>
+            <p className="text-white/40 text-xs">{activeWorkout.dayLabel} Day — Tap to resume</p>
+          </div>
+        </button>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">

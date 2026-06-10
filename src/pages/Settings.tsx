@@ -88,7 +88,7 @@ export const Settings: React.FC = () => {
       <div className="glass rounded-2xl p-4 mb-4 animate-fade-in">
         <div className="flex items-center gap-2 mb-4">
           <Key className="w-4 h-4 text-accent" />
-          <h2 className="text-sm font-semibold text-white/80">Groq API Key</h2>
+          <h2 className="text-sm font-semibold text-white/80">Gemini API Key</h2>
         </div>
         <input
           type="password"
@@ -97,7 +97,7 @@ export const Settings: React.FC = () => {
           placeholder="gsk_..."
           className="w-full bg-bg-elevated border border-white/5 rounded-xl px-4 py-3 text-sm outline-none focus:border-accent/40 transition-colors font-mono"
         />
-        <p className="text-[10px] text-white/30 mt-2">Required for AI features. Get one at console.groq.com</p>
+        <p className="text-[10px] text-white/30 mt-2">Required for AI features. Get one at aistudio.google.com</p>
       </div>
 
       {/* Save Button */}

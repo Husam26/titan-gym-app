@@ -147,7 +147,7 @@ export const useStore = create<AppState>()(
       todayPlan: null,
       activeWorkout: null,
       chatHistory: [],
-      apiKey: import.meta.env.VITE_GROQ_API_KEY || '',
+      apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
       isGenerating: false,
 
       completeOnboarding: (profile) => set({
@@ -272,7 +272,7 @@ export const useStore = create<AppState>()(
       }),
     }),
     {
-      name: 'jeera-gym-store',
+      name: 'titan-gym-store',
     }
   )
 );

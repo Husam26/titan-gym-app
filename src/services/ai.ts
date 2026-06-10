@@ -1,23 +1,34 @@
 /**
- * JEERA AI Service — Gemini API Integration
+ * TITAN AI Service — Google Gemini API Integration
  * 
  * Every AI call sends the user's FULL data as context so the AI
  * knows everything: profile, workout history, PRs, plateaus.
  */
 
 import { useStore } from '../store/useStore';
-import type { WorkoutSession, TodayPlan } from '../store/useStore';
+import type { WorkoutSession, TodayPlan, ExerciseLog } from '../store/useStore';
 
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
-
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+// ─── Muscle group mapping for smart workout generation ────────────────
+const MUSCLE_MAP: Record<string, string> = {
+  'Push': 'Chest (2 exercises: e.g. Bench Press, Incline DB Press), Shoulders (2 exercises: e.g. OHP, Lateral Raises), Triceps (1-2 exercises: e.g. Tricep Pushdowns, Overhead Extension)',
+  'Pull': 'Back (2-3 exercises: e.g. Barbell Rows, Lat Pulldowns, Cable Rows), Biceps (1-2 exercises: e.g. Barbell Curls, Hammer Curls), Rear Delts (1 exercise: e.g. Face Pulls), Forearms (1 exercise: e.g. Wrist Curls or Farmer Walks)',
+  'Legs': 'Quads (2 exercises: e.g. Squats, Leg Press), Hamstrings (1-2 exercises: e.g. RDL, Leg Curls), Glutes (1 exercise: e.g. Hip Thrusts), Calves (1 exercise: e.g. Standing Calf Raises)',
+  'Chest': 'Chest (3-4 exercises: Flat Bench, Incline Press, Cable Flies, Dips), Triceps (1-2 exercises)',
+  'Back': 'Back (3-4 exercises: Rows, Pulldowns, Deadlifts, Face Pulls), Biceps (1-2 exercises)',
+  'Arms': 'Biceps (2-3 exercises: Barbell Curl, Hammer Curl, Concentration Curl), Triceps (2-3 exercises: Pushdowns, Skull Crushers, Dips), Forearms (1 exercise)',
+  'Shoulders': 'Front Delts (1 exercise), Side Delts (2 exercises: Lateral Raises variations), Rear Delts (1 exercise: Face Pulls or Reverse Flies), Traps (1 exercise: Shrugs)',
+  'Upper': 'Chest (1-2), Back (1-2), Shoulders (1), Biceps (1), Triceps (1)',
+  'Lower': 'Quads (2), Hamstrings (1-2), Glutes (1), Calves (1)',
+  'Full Body': 'Chest (1), Back (1), Shoulders (1), Legs (1-2), Arms (1)',
+};
 
 // ─── Build complete user context for AI ───────────────────────────────
 function buildUserContext(): string {
   const state = useStore.getState();
   const { profile, workoutHistory } = state;
 
-  // Basic info
   let context = `## User Profile
 - Name: ${profile.name}
 - Age: ${profile.age} years
@@ -86,7 +97,6 @@ function detectPRs(history: WorkoutSession[]): Record<string, { weight: number; 
 function detectPlateaus(history: WorkoutSession[]): { exercise: string; weight: number; sessions: number }[] {
   const exerciseWeights: Record<string, number[]> = {};
   
-  // Collect max weight per exercise per session
   history.forEach(session => {
     session.exercises.forEach(ex => {
       if (!exerciseWeights[ex.name]) exerciseWeights[ex.name] = [];
@@ -108,43 +118,48 @@ function detectPlateaus(history: WorkoutSession[]): { exercise: string; weight: 
   return plateaus;
 }
 
-// ─── Core API Call ────────────────────────────────────────────────────
-async function callAI(systemPrompt: string, userMessage: string): Promise<string> {
+// ─── Core Gemini API Call ─────────────────────────────────────────────
+async function callAI(systemPrompt: string, userMessage: string, jsonMode: boolean = false): Promise<string> {
   const apiKey = useStore.getState().apiKey;
   if (!apiKey) {
-    throw new Error('API key not set. Go to Settings and enter your Groq API key.');
+    throw new Error('API key not set. Go to Settings and enter your Gemini API key.');
   }
 
-  const response = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
+  const body: Record<string, unknown> = {
+    contents: [
+      { role: 'user', parts: [{ text: userMessage }] }
+    ],
+    systemInstruction: {
+      parts: [{ text: systemPrompt }]
     },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage }
-      ],
+    generationConfig: {
       temperature: 0.7,
-      max_tokens: 2000,
-    })
+      maxOutputTokens: 2000,
+      ...(jsonMode ? { responseMimeType: 'application/json' } : {})
+    }
+  };
+
+  const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
   });
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`Groq API error: ${response.status} — ${errText}\n\nTip: Check your API key in Settings.`);
+    throw new Error(`Gemini API error: ${response.status} — ${errText}\n\nTip: Check your API key in Settings.`);
   }
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || 'No response from AI.';
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('No response from AI.');
+  return text;
 }
 
 // ─── Generate Today's Workout ─────────────────────────────────────────
 export async function generateTodayWorkout(dayLabel: string): Promise<TodayPlan> {
   const context = buildUserContext();
+  const muscleGuide = MUSCLE_MAP[dayLabel] || `muscles appropriate for "${dayLabel}" day`;
 
   const systemPrompt = `You are TITAN, a smart, friendly AI gym trainer. You speak casually like a gym bro who actually knows exercise science. You know the user's complete workout history.
 
@@ -152,7 +167,9 @@ ${context}
 
 IMPORTANT RULES:
 - Generate a workout plan for "${dayLabel}" day
-- Include 4-6 exercises appropriate for "${dayLabel}"
+- You MUST cover these muscle groups: ${muscleGuide}
+- ALWAYS add 1-2 core/ab exercises at the end (e.g. Cable Crunches, Hanging Leg Raises, Planks, Ab Wheel Rollouts)
+- Total exercises should be 6-8 (including abs)
 - For each exercise, suggest target sets (3-4), target reps (range like "8-12"), and a suggested weight based on their history
 - Progressive Overload Logic: If they've done the exercise before, look at their last weight and RPE. If RPE is 1-6 (easy), suggest +5kg. If RPE is 7-8 (perfect), suggest +2.5kg. If RPE is 9-10 (too hard) or missing, keep weight the same but suggest more reps.
 - If they haven't done it before but similar exercises exist, estimate based on those
@@ -175,7 +192,7 @@ JSON FORMAT:
 
   const userMessage = `Generate today's ${dayLabel} workout plan for me. Give me a solid session.`;
 
-  const response = await callAI(systemPrompt, userMessage);
+  const response = await callAI(systemPrompt, userMessage, true);
   
   // Parse JSON from response (handle possible markdown wrapping)
   let jsonStr = response.trim();
@@ -214,9 +231,8 @@ export async function sendChatMessage(userMessage: string): Promise<string> {
   const context = buildUserContext();
   const chatHistory = useStore.getState().chatHistory;
 
-  // Build conversation context from recent chat
   let conversationContext = '';
-  const recentMessages = chatHistory.slice(-10); // last 10 messages
+  const recentMessages = chatHistory.slice(-10);
   if (recentMessages.length > 0) {
     conversationContext = '\n## Recent Chat History\n';
     recentMessages.forEach(msg => {
@@ -224,7 +240,7 @@ export async function sendChatMessage(userMessage: string): Promise<string> {
     });
   }
 
-  const systemPrompt = `You are TITAN, a hyper-intelligent but friendly gym bro AI. You are having a chat with your client. access to the user's complete gym data and history. 
+  const systemPrompt = `You are TITAN, a hyper-intelligent but friendly gym bro AI. You are having a chat with your client. You have access to the user's complete gym data and history.
 
 Your personality:
 - Talk casually like a supportive gym buddy, mix Hindi and English naturally
@@ -243,16 +259,18 @@ ${conversationContext}`;
 // ─── Remix/Regenerate Workout ─────────────────────────────────────────
 export async function remixWorkout(dayLabel: string): Promise<TodayPlan> {
   const context = buildUserContext();
+  const muscleGuide = MUSCLE_MAP[dayLabel] || `muscles appropriate for "${dayLabel}" day`;
 
-  const systemPrompt = `You are JEERA, an AI gym trainer. The user is BORED of their usual routine and wants a completely fresh ${dayLabel} workout.
+  const systemPrompt = `You are TITAN, an AI gym trainer. The user is BORED of their usual routine and wants a completely fresh ${dayLabel} workout.
 
 ${context}
 
 RULES:
 - Generate a FRESH workout with exercises they haven't done recently
-- Still target the right muscles for "${dayLabel}" day
+- You MUST cover these muscle groups: ${muscleGuide}
+- ALWAYS add 1-2 core/ab exercises at the end
 - Include some unusual/fun variations to break monotony
-- 4-6 exercises, with sets/reps/weight suggestions
+- 6-8 exercises total (including abs), with sets/reps/weight suggestions
 - Respond ONLY with valid JSON
 
 JSON FORMAT:
@@ -268,7 +286,7 @@ JSON FORMAT:
   ]
 }`;
 
-  const response = await callAI(systemPrompt, `Remix my ${dayLabel} workout. Give me something fresh!`);
+  const response = await callAI(systemPrompt, `Remix my ${dayLabel} workout. Give me something fresh!`, true);
   
   let jsonStr = response.trim();
   if (jsonStr.startsWith('\`\`\`')) {
@@ -282,4 +300,46 @@ JSON FORMAT:
     exercises: parsed.exercises,
     generatedAt: new Date().toISOString(),
   };
+}
+
+// ─── Post-Workout AI Summary ──────────────────────────────────────────
+export async function generateWorkoutSummary(exercises: ExerciseLog[], dayLabel: string, duration: number): Promise<string> {
+  const context = buildUserContext();
+
+  // Build current workout details
+  let workoutDetails = `## Just Completed: ${dayLabel} Day (${duration} min)\n`;
+  let totalVolume = 0;
+  let totalSets = 0;
+
+  exercises.forEach(ex => {
+    workoutDetails += `\n### ${ex.name}\n`;
+    ex.sets.forEach((s, i) => {
+      const vol = s.weight * s.reps;
+      totalVolume += vol;
+      totalSets++;
+      workoutDetails += `- Set ${i + 1}: ${s.weight}kg × ${s.reps} reps${s.rpe ? ` @RPE ${s.rpe}` : ''} (volume: ${vol}kg)\n`;
+    });
+  });
+
+  workoutDetails += `\n**Total Volume:** ${totalVolume}kg across ${totalSets} sets\n`;
+  workoutDetails += `**Duration:** ${duration} minutes\n`;
+
+  const systemPrompt = `You are TITAN, a smart AI gym trainer and bro. The user just finished their workout. Give them a short, encouraging, personalized summary.
+
+${context}
+
+${workoutDetails}
+
+RULES:
+- Start with encouragement (e.g. "Solid push day bro! 🔥")
+- Mention specific exercises and numbers — compare with their previous sessions if available
+- Highlight any PRs or improvements
+- If RPE was consistently high (9-10), suggest they might need a deload or to stay at current weights
+- If RPE was low (1-6), tell them to push harder next time
+- Point out any muscles they might have undertrained
+- Keep it short: 3-5 sentences max
+- Be casual and bro-like, mix Hindi-English naturally
+- DO NOT use markdown formatting, just plain text with emojis`;
+
+  return await callAI(systemPrompt, 'How was my workout? Give me your honest review.');
 }

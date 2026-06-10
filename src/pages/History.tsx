@@ -169,8 +169,29 @@ export const History: React.FC = () => {
                 </button>
 
                 {/* Expanded details */}
-                {isExpanded && (
+                {isExpanded && (() => {
+                  const sessionVol = session.exercises.reduce(
+                    (sum, ex) => sum + ex.sets.reduce((s, set) => s + set.weight * set.reps, 0),
+                    0
+                  );
+                  const totalSets = session.exercises.reduce(
+                    (sum, ex) => sum + ex.sets.length,
+                    0
+                  );
+
+                  return (
                   <div className="px-4 pb-4 border-t border-white/5 pt-3 space-y-3 animate-fade-in">
+                    {/* Session totals */}
+                    <div className="glass rounded-xl px-3 py-2 flex items-center justify-center gap-1.5">
+                      <span className="text-xs text-zinc-300 font-medium">
+                        Total Volume: {sessionVol.toLocaleString()}kg
+                      </span>
+                      <span className="text-xs text-zinc-500">•</span>
+                      <span className="text-xs text-zinc-400">
+                        {totalSets} sets
+                      </span>
+                    </div>
+
                     {session.exercises.map((exercise, exIdx) => {
                       const increased = hadWeightIncrease(
                         exercise.name,
@@ -199,14 +220,23 @@ export const History: React.FC = () => {
                                 className="px-2.5 py-1 rounded-lg bg-bg-elevated text-xs text-zinc-300 border border-white/5"
                               >
                                 {set.weight}kg × {set.reps}
+                                {set.rpe && (
+                                  <span className="text-zinc-400"> @RPE {set.rpe}</span>
+                                )}
                               </span>
                             ))}
                           </div>
+
+                          {/* Exercise volume */}
+                          <p className="text-xs text-zinc-500 mt-1.5">
+                            Volume: {exercise.sets.reduce((sum, s) => sum + s.weight * s.reps, 0).toLocaleString()}kg
+                          </p>
                         </div>
                       );
                     })}
                   </div>
-                )}
+                  );
+                })()}
               </div>
             );
           })}

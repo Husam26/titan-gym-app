@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { getSwapSuggestion } from '../services/ai';
-import { Timer, Check, ArrowRightLeft, Loader2, ChevronRight } from 'lucide-react';
+import { Timer, Check, ArrowRightLeft, Loader2, ChevronRight, Minimize2, Undo2, Pencil, X } from 'lucide-react';
 
-export const ActiveWorkout: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+export const ActiveWorkout: React.FC<{ onComplete: () => void; onMinimize?: () => void }> = ({ onComplete, onMinimize }) => {
   const activeWorkout = useStore((s) => s.activeWorkout);
   const logSet = useStore((s) => s.logSet);
+  const updateSet = useStore((s) => s.updateSet);
+  const removeLastSet = useStore((s) => s.removeLastSet);
   const swapExercise = useStore((s) => s.swapExercise);
   const completeWorkout = useStore((s) => s.completeWorkout);
   const cancelWorkout = useStore((s) => s.cancelWorkout);
@@ -19,6 +21,10 @@ export const ActiveWorkout: React.FC<{ onComplete: () => void }> = ({ onComplete
   const [restTimer, setRestTimer] = useState(0);
   const [isSwapping, setIsSwapping] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [editingSetIdx, setEditingSetIdx] = useState<number | null>(null);
+  const [editWeight, setEditWeight] = useState('');
+  const [editReps, setEditReps] = useState('');
+  const [editRpe, setEditRpe] = useState('');
 
   const tabsRef = useRef<HTMLDivElement>(null);
 
@@ -112,6 +118,30 @@ export const ActiveWorkout: React.FC<{ onComplete: () => void }> = ({ onComplete
     }
   };
 
+  const handleUndoSet = () => {
+    if (currentEx && currentEx.sets.length > 0) {
+      removeLastSet(activeExIdx);
+    }
+  };
+
+  const handleStartEdit = (setIdx: number) => {
+    const set = currentEx.sets[setIdx];
+    setEditingSetIdx(setIdx);
+    setEditWeight(String(set.weight));
+    setEditReps(String(set.reps));
+    setEditRpe(String(set.rpe || ''));
+  };
+
+  const handleSaveEdit = () => {
+    if (editingSetIdx === null) return;
+    const w = parseFloat(editWeight);
+    const r = parseInt(editReps, 10);
+    const rp = parseInt(editRpe, 10);
+    if (isNaN(w) || isNaN(r) || w <= 0 || r <= 0) return;
+    updateSet(activeExIdx, editingSetIdx, { weight: w, reps: r, rpe: isNaN(rp) ? undefined : rp });
+    setEditingSetIdx(null);
+  };
+
   const handleComplete = () => {
     completeWorkout();
     onComplete();
@@ -140,12 +170,23 @@ export const ActiveWorkout: React.FC<{ onComplete: () => void }> = ({ onComplete
             </span>
           </div>
         </div>
-        <button
-          onClick={() => setShowEndConfirm(true)}
-          className="px-4 py-2 text-sm text-red-400 hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 rounded-lg font-medium transition-colors"
-        >
-          End
-        </button>
+        <div className="flex items-center gap-2">
+          {onMinimize && (
+            <button
+              onClick={onMinimize}
+              className="px-3 py-2 text-sm text-white/50 hover:text-white/80 bg-white/5 hover:bg-white/10 rounded-lg font-medium transition-colors"
+              title="Minimize workout"
+            >
+              <Minimize2 className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={() => setShowEndConfirm(true)}
+            className="px-4 py-2 text-sm text-red-400 hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 rounded-lg font-medium transition-colors"
+          >
+            End
+          </button>
+        </div>
       </div>
 
       {/* End confirmation modal */}
@@ -259,20 +300,48 @@ export const ActiveWorkout: React.FC<{ onComplete: () => void }> = ({ onComplete
                       className="flex items-center gap-3 glass rounded-xl px-4 py-3 animate-slide-up"
                       style={{ animationDelay: `${setIdx * 40}ms` }}
                     >
-                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                        <Check className="w-4 h-4 text-emerald-400" />
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-white font-semibold">{set.weight}kg</span>
-                        <span className="text-white/30 mx-2">×</span>
-                        <span className="text-white font-semibold">{set.reps} reps</span>
-                        {set.rpe && <span className="text-white/50 text-sm ml-2">@RPE {set.rpe}</span>}
-                      </div>
-                      <span className="text-white/20 text-sm font-medium">
-                        Set {setIdx + 1}
-                      </span>
+                      {editingSetIdx === setIdx ? (
+                        /* Inline edit mode */
+                        <div className="flex-1 flex items-center gap-2">
+                          <input type="number" value={editWeight} onChange={e => setEditWeight(e.target.value)} className="w-16 bg-white/10 rounded-lg px-2 py-1.5 text-white text-sm text-center" />
+                          <span className="text-white/30 text-xs">kg ×</span>
+                          <input type="number" value={editReps} onChange={e => setEditReps(e.target.value)} className="w-14 bg-white/10 rounded-lg px-2 py-1.5 text-white text-sm text-center" />
+                          <span className="text-white/30 text-xs">@</span>
+                          <input type="number" value={editRpe} onChange={e => setEditRpe(e.target.value)} className="w-12 bg-white/10 rounded-lg px-2 py-1.5 text-white text-sm text-center" placeholder="RPE" />
+                          <button onClick={handleSaveEdit} className="p-1.5 bg-emerald-500/20 rounded-lg"><Check className="w-4 h-4 text-emerald-400" /></button>
+                          <button onClick={() => setEditingSetIdx(null)} className="p-1.5 bg-red-500/20 rounded-lg"><X className="w-4 h-4 text-red-400" /></button>
+                        </div>
+                      ) : (
+                        /* Display mode */
+                        <>
+                          <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                            <Check className="w-4 h-4 text-emerald-400" />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-white font-semibold">{set.weight}kg</span>
+                            <span className="text-white/30 mx-2">×</span>
+                            <span className="text-white font-semibold">{set.reps} reps</span>
+                            {set.rpe && <span className="text-white/50 text-sm ml-2">@RPE {set.rpe}</span>}
+                          </div>
+                          <button onClick={() => handleStartEdit(setIdx)} className="p-1.5 text-white/20 hover:text-white/50 transition-colors">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-white/20 text-sm font-medium">
+                            Set {setIdx + 1}
+                          </span>
+                        </>
+                      )}
                     </div>
                   ))}
+                  {/* Undo last set button */}
+                  {currentEx.sets.length > 0 && (
+                    <button
+                      onClick={handleUndoSet}
+                      className="flex items-center justify-center gap-1.5 text-sm text-red-400/60 hover:text-red-400 py-2 transition-colors"
+                    >
+                      <Undo2 className="w-3.5 h-3.5" /> Undo last set
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -367,10 +436,35 @@ export const ActiveWorkout: React.FC<{ onComplete: () => void }> = ({ onComplete
                   />
                 </div>
               </div>
+
+              {/* RPE Guide */}
+              <div className="mt-2 mb-3 grid grid-cols-5 gap-1 text-center">
+                <div className="rounded-lg bg-emerald-500/10 px-1 py-1.5">
+                  <p className="text-[10px] font-bold text-emerald-400">1-4</p>
+                  <p className="text-[8px] text-white/30">Easy</p>
+                </div>
+                <div className="rounded-lg bg-yellow-500/10 px-1 py-1.5">
+                  <p className="text-[10px] font-bold text-yellow-400">5-6</p>
+                  <p className="text-[8px] text-white/30">Medium</p>
+                </div>
+                <div className="rounded-lg bg-orange-500/10 px-1 py-1.5">
+                  <p className="text-[10px] font-bold text-orange-400">7-8</p>
+                  <p className="text-[8px] text-white/30">Hard</p>
+                </div>
+                <div className="rounded-lg bg-red-500/10 px-1 py-1.5">
+                  <p className="text-[10px] font-bold text-red-400">9</p>
+                  <p className="text-[8px] text-white/30">1 left</p>
+                </div>
+                <div className="rounded-lg bg-red-700/15 px-1 py-1.5">
+                  <p className="text-[10px] font-bold text-red-500">💀 10</p>
+                  <p className="text-[8px] text-white/30">Max</p>
+                </div>
+              </div>
+
               <button
                 onClick={handleLogSet}
                 disabled={!weight || !reps || !rpe}
-                className="w-full mt-3 py-4 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 disabled:bg-white/5 disabled:text-white/20 text-white font-semibold rounded-xl flex items-center justify-center gap-2 text-lg transition-colors"
+                className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 disabled:bg-white/5 disabled:text-white/20 text-white font-semibold rounded-xl flex items-center justify-center gap-2 text-lg transition-colors"
               >
                 <Check className="w-5 h-5" />
                 Log Set
