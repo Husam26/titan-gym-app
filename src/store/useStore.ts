@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 // ─── Types ────────────────────────────────────────────────────────────
 export type Experience = 'beginner' | 'intermediate' | 'advanced';
@@ -146,7 +147,8 @@ const DEFAULT_PROFILE: UserProfile = {
 };
 
 export const useStore = create<AppState>()(
-  (set, get) => ({
+  persist(
+    (set, get) => ({
       hasOnboarded: false,
       profile: DEFAULT_PROFILE,
       workoutHistory: [],
@@ -291,7 +293,11 @@ export const useStore = create<AppState>()(
         apiKey: '',
       isGenerating: false,
       }),
-    })
+    }),
+    {
+      name: 'jeera-gym-store',
+    }
+  )
 );
 
 // ─── Helper: Get today's split day (Smart Rotation) ───────────────────

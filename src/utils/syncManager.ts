@@ -23,30 +23,42 @@ export function initSync() {
       if (syncTimeout) clearTimeout(syncTimeout);
       
       syncTimeout = setTimeout(async () => {
-        try {
-          // Push to Supabase
-          const { error } = await supabase
-            .from('user_data')
-            .upsert({ 
-              id: MVP_USER_ID,
-              user_name: state.profile.name || 'Anonymous',
-              profile: state.profile,
-              workout_history: state.workoutHistory,
-              chat_history: state.chatHistory,
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'id' });
-          
-          if (error) {
-            console.error('Supabase sync error:', error);
-          } else {
-            console.log('✅ Synced to Supabase');
-          }
-        } catch (err) {
-          console.error('Failed to sync to Supabase (offline)', err);
-        }
+        await forceSyncToCloud();
       }, SYNC_DELAY);
     }
   });
+
+  // Force an initial sync to ensure local data is backed up to cloud
+  setTimeout(() => {
+    forceSyncToCloud();
+  }, 2000);
+}
+
+export async function forceSyncToCloud() {
+  const state = useStore.getState();
+  if (!state.hasOnboarded) return;
+
+  try {
+    // Push to Supabase
+    const { error } = await supabase
+      .from('user_data')
+      .upsert({ 
+        id: MVP_USER_ID,
+        user_name: state.profile.name || 'Anonymous',
+        profile: state.profile,
+        workout_history: state.workoutHistory,
+        chat_history: state.chatHistory,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    
+    if (error) {
+      console.error('Supabase sync error:', error);
+    } else {
+      console.log('✅ Synced to Supabase');
+    }
+  } catch (err) {
+    console.error('Failed to sync to Supabase (offline)', err);
+  }
 }
 
 // Function to pull data from Supabase on first load (if needed)
