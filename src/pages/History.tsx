@@ -145,6 +145,11 @@ export const History: React.FC = () => {
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${session.isMissed ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
                         {session.dayLabel}
                       </span>
+                      {session.isBackdated && (
+                        <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[10px] font-medium flex-shrink-0">
+                          Backdated
+                        </span>
+                      )}
                     </div>
 
                     {/* Duration + exercise summary */}

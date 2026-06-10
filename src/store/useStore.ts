@@ -34,6 +34,7 @@ export interface WorkoutSession {
   duration?: number; // minutes
   notes?: string;
   isMissed?: boolean;
+  isBackdated?: boolean;
 }
 
 export interface ChatMessage {
@@ -231,6 +232,7 @@ export const useStore = create<AppState>()(
           id: `wo-${Date.now()}`,
           date: activeWorkout.forDate || new Date().toISOString(),
           dayLabel: activeWorkout.dayLabel,
+          isBackdated: !!activeWorkout.forDate,
           exercises: activeWorkout.exercises
             .filter(e => e.sets.length > 0)
             .map(e => ({

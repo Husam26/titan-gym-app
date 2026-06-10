@@ -50,7 +50,8 @@ function buildUserContext(): string {
     recentHistory.forEach(session => {
       const date = new Date(session.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       const duration = session.duration ? ` (${session.duration}min)` : '';
-      context += `\n### ${date} — ${session.dayLabel}${duration}\n`;
+      const backdatedTag = session.isBackdated ? ' [BACKDATED LOG: Ignore the short duration, user logged this after the fact]' : '';
+      context += `\n### ${date} — ${session.dayLabel}${duration}${backdatedTag}\n`;
       session.exercises.forEach(ex => {
         const setDetails = ex.sets.map(s => `${s.weight}kg×${s.reps}${s.rpe ? ` @RPE${s.rpe}` : ''}`).join(', ');
         context += `- ${ex.name}: ${setDetails}\n`;
