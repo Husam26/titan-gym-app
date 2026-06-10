@@ -1,7 +1,7 @@
 -- Run this in your Supabase SQL Editor
 
 CREATE TABLE user_data (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY,
     user_name TEXT NOT NULL,
     profile JSONB,
     workout_history JSONB,
