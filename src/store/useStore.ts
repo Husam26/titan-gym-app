@@ -1,10 +1,9 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 // ─── Types ────────────────────────────────────────────────────────────
 export type Experience = 'beginner' | 'intermediate' | 'advanced';
 export type Goal = 'strength_size' | 'lean_muscle' | 'fat_loss';
-export type SplitName = 'bro' | 'ppl' | 'upper_lower' | 'full_body' | 'custom';
+export type SplitName = 'bro' | 'ppl' | 'upper_lower' | 'full_body' | 'custom' | 'bro_variant';
 
 export interface UserProfile {
   name: string;
@@ -34,6 +33,7 @@ export interface WorkoutSession {
   exercises: ExerciseLog[];
   duration?: number; // minutes
   notes?: string;
+  isMissed?: boolean;
 }
 
 export interface ChatMessage {
@@ -75,6 +75,7 @@ interface AppState {
       sets: SetLog[];
     }[];
     startedAt: string;
+    forDate?: string;
   } | null;
 
   // AI Chat
@@ -91,7 +92,7 @@ interface AppState {
   updateProfile: (updates: Partial<UserProfile>) => void;
   setApiKey: (key: string) => void;
   setTodayPlan: (plan: TodayPlan) => void;
-  startWorkout: (dayLabel: string, exercises: { name: string; targetSets: number; targetReps: string; lastWeight: number | null }[]) => void;
+  startWorkout: (dayLabel: string, exercises: { name: string; targetSets: number; targetReps: string; lastWeight: number | null }[], forDate?: string) => void;
   logSet: (exerciseIndex: number, set: SetLog) => void;
   updateSet: (exerciseIndex: number, setIndex: number, set: SetLog) => void;
   removeLastSet: (exerciseIndex: number) => void;
@@ -101,6 +102,7 @@ interface AppState {
   addChatMessage: (role: 'user' | 'assistant', content: string) => void;
   clearChat: () => void;
   setIsGenerating: (v: boolean) => void;
+  markDayMissed: (date: string, dayLabel: string) => void;
   resetAll: () => void;
 }
 
@@ -109,6 +111,10 @@ export const SPLIT_PRESETS: Record<SplitName, { label: string; days: string[] }>
   bro: {
     label: 'Bro Split',
     days: ['Chest', 'Back', 'Arms', 'Shoulders', 'Legs', 'Rest', 'Rest']
+  },
+  bro_variant: {
+    label: 'Bro Split Variant',
+    days: ['Chest & Triceps', 'Back & Biceps', 'Shoulders & Forearms', 'Legs & Abs', 'Rest', 'Full Body', 'Rest']
   },
   ppl: {
     label: 'Push Pull Legs',
@@ -139,8 +145,7 @@ const DEFAULT_PROFILE: UserProfile = {
 };
 
 export const useStore = create<AppState>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       hasOnboarded: false,
       profile: DEFAULT_PROFILE,
       workoutHistory: [],
@@ -163,14 +168,15 @@ export const useStore = create<AppState>()(
 
       setTodayPlan: (plan) => set({ todayPlan: plan }),
 
-      startWorkout: (dayLabel, exercises) => set({
+      startWorkout: (dayLabel, exercises, forDate) => set({
         activeWorkout: {
           dayLabel,
           exercises: exercises.map(e => ({
             ...e,
             sets: []
           })),
-          startedAt: new Date().toISOString()
+          startedAt: new Date().toISOString(),
+          forDate
         }
       }),
 
@@ -223,7 +229,7 @@ export const useStore = create<AppState>()(
 
         const session: WorkoutSession = {
           id: `wo-${Date.now()}`,
-          date: new Date().toISOString(),
+          date: activeWorkout.forDate || new Date().toISOString(),
           dayLabel: activeWorkout.dayLabel,
           exercises: activeWorkout.exercises
             .filter(e => e.sets.length > 0)
@@ -236,7 +242,7 @@ export const useStore = create<AppState>()(
 
         if (session.exercises.length > 0) {
           set({
-            workoutHistory: [session, ...workoutHistory],
+            workoutHistory: [session, ...workoutHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
             activeWorkout: null,
             todayPlan: null, // clear today's plan after workout
           });
@@ -260,6 +266,19 @@ export const useStore = create<AppState>()(
 
       setIsGenerating: (v) => set({ isGenerating: v }),
 
+      markDayMissed: (date: string, dayLabel: string) => {
+        const session: WorkoutSession = {
+          id: `missed-${Date.now()}`,
+          date: date,
+          dayLabel: dayLabel,
+          exercises: [],
+          isMissed: true,
+        };
+        set(s => ({
+          workoutHistory: [session, ...s.workoutHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        }));
+      },
+
       resetAll: () => set({
         hasOnboarded: false,
         profile: DEFAULT_PROFILE,
@@ -268,13 +287,9 @@ export const useStore = create<AppState>()(
         activeWorkout: null,
         chatHistory: [],
         apiKey: '',
-        isGenerating: false,
+      isGenerating: false,
       }),
-    }),
-    {
-      name: 'titan-gym-store',
-    }
-  )
+    })
 );
 
 // ─── Helper: Get today's split day (Smart Rotation) ───────────────────

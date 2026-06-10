@@ -140,22 +140,28 @@ export const History: React.FC = () => {
                     {/* Day label + badge */}
                     <div className="flex items-center gap-2 mb-1.5">
                       <h3 className="text-sm font-semibold text-white truncate">
-                        {session.dayLabel}
+                        {session.isMissed ? 'Missed Day' : session.dayLabel}
                       </h3>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium flex-shrink-0">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${session.isMissed ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
                         {session.dayLabel}
                       </span>
                     </div>
 
                     {/* Duration + exercise summary */}
                     <div className="flex items-center gap-3 text-xs text-zinc-500">
-                      {session.duration && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {formatDuration(session.duration)}
-                        </span>
+                      {session.isMissed ? (
+                        <span className="text-red-400/60">Workout marked as missed</span>
+                      ) : (
+                        <>
+                          {session.duration && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatDuration(session.duration)}
+                            </span>
+                          )}
+                          <span className="truncate">{getExerciseSummary(session.exercises)}</span>
+                        </>
                       )}
-                      <span className="truncate">{getExerciseSummary(session.exercises)}</span>
                     </div>
                   </div>
 
@@ -169,7 +175,14 @@ export const History: React.FC = () => {
                 </button>
 
                 {/* Expanded details */}
-                {isExpanded && (() => {
+                {isExpanded && session.isMissed && (
+                  <div className="px-4 pb-4 border-t border-red-500/10 pt-3">
+                    <div className="bg-red-500/10 rounded-lg p-3 text-center text-red-400 text-sm font-medium">
+                      You missed this workout session.
+                    </div>
+                  </div>
+                )}
+                {isExpanded && !session.isMissed && (() => {
                   const sessionVol = session.exercises.reduce(
                     (sum, ex) => sum + ex.sets.reduce((s, set) => s + set.weight * set.reps, 0),
                     0

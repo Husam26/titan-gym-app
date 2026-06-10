@@ -12,16 +12,20 @@ const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/
 
 // ─── Muscle group mapping for smart workout generation ────────────────
 const MUSCLE_MAP: Record<string, string> = {
-  'Push': 'Chest (2 exercises: e.g. Bench Press, Incline DB Press), Shoulders (2 exercises: e.g. OHP, Lateral Raises), Triceps (1-2 exercises: e.g. Tricep Pushdowns, Overhead Extension)',
-  'Pull': 'Back (2-3 exercises: e.g. Barbell Rows, Lat Pulldowns, Cable Rows), Biceps (1-2 exercises: e.g. Barbell Curls, Hammer Curls), Rear Delts (1 exercise: e.g. Face Pulls), Forearms (1 exercise: e.g. Wrist Curls or Farmer Walks)',
-  'Legs': 'Quads (2 exercises: e.g. Squats, Leg Press), Hamstrings (1-2 exercises: e.g. RDL, Leg Curls), Glutes (1 exercise: e.g. Hip Thrusts), Calves (1 exercise: e.g. Standing Calf Raises)',
-  'Chest': 'Chest (3-4 exercises: Flat Bench, Incline Press, Cable Flies, Dips), Triceps (1-2 exercises)',
-  'Back': 'Back (3-4 exercises: Rows, Pulldowns, Deadlifts, Face Pulls), Biceps (1-2 exercises)',
+  'Push': 'Chest (2 exercises: e.g. Bench Press, Incline DB Press), Shoulders (2 exercises: e.g. OHP, Lateral Raises), Triceps (1-2 exercises: e.g. Tricep Pushdowns, Overhead Extension), Abs (1 exercise)',
+  'Pull': 'Back (2-3 exercises: e.g. Barbell Rows, Lat Pulldowns, Cable Rows), Biceps (1-2 exercises: e.g. Barbell Curls, Hammer Curls), Rear Delts (1 exercise: e.g. Face Pulls), Forearms (1 exercise: e.g. Wrist Curls or Farmer Walks), Abs (1 exercise)',
+  'Legs': 'Quads (2 exercises: e.g. Squats, Leg Press), Hamstrings (1-2 exercises: e.g. RDL, Leg Curls), Glutes (1 exercise: e.g. Hip Thrusts), Calves (1 exercise: e.g. Standing Calf Raises), Abs (1 exercise)',
+  'Chest': 'Chest (3-4 exercises: Flat Bench, Incline Press, Cable Flies, Dips), Triceps (1-2 exercises), Abs (1 exercise)',
+  'Back': 'Back (3-4 exercises: Rows, Pulldowns, Deadlifts, Face Pulls), Biceps (1-2 exercises), Abs (1 exercise)',
   'Arms': 'Biceps (2-3 exercises: Barbell Curl, Hammer Curl, Concentration Curl), Triceps (2-3 exercises: Pushdowns, Skull Crushers, Dips), Forearms (1 exercise)',
-  'Shoulders': 'Front Delts (1 exercise), Side Delts (2 exercises: Lateral Raises variations), Rear Delts (1 exercise: Face Pulls or Reverse Flies), Traps (1 exercise: Shrugs)',
-  'Upper': 'Chest (1-2), Back (1-2), Shoulders (1), Biceps (1), Triceps (1)',
-  'Lower': 'Quads (2), Hamstrings (1-2), Glutes (1), Calves (1)',
-  'Full Body': 'Chest (1), Back (1), Shoulders (1), Legs (1-2), Arms (1)',
+  'Shoulders': 'Front Delts (1 exercise), Side Delts (2 exercises: Lateral Raises variations), Rear Delts (1 exercise: Face Pulls or Reverse Flies), Traps (1 exercise: Shrugs), Abs (1 exercise)',
+  'Upper': 'Chest (1-2), Back (1-2), Shoulders (1), Biceps (1), Triceps (1), Abs (1)',
+  'Lower': 'Quads (2), Hamstrings (1-2), Glutes (1), Calves (1), Abs (1)',
+  'Chest & Triceps': 'Chest (3-4 exercises: Bench, Incline, Flies), Triceps (2 exercises: Pushdowns, Overhead Ext)',
+  'Back & Biceps': 'Back (3-4 exercises: Pulldowns, Rows), Biceps (2 exercises: Curls, Hammer), Rear Delts (1 exercise)',
+  'Shoulders & Forearms': 'Shoulders (3-4 exercises: OHP, Lateral Raises, Front Raises), Forearms (2 exercises: Wrist Curls, Reverse Curls)',
+  'Legs & Abs': 'Quads (2 exercises), Hamstrings (2 exercises), Calves (1 exercise), Abs (2-3 exercises: Crunches, Planks, Leg Raises)',
+  'Full Body': 'Chest (1), Back (1), Shoulders (1), Legs (1-2), Arms (1), Abs (1)',
 };
 
 // ─── Build complete user context for AI ───────────────────────────────
