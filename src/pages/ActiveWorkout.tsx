@@ -163,6 +163,11 @@ export const ActiveWorkout: React.FC<{ onComplete: () => void; onMinimize?: () =
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
         <div>
           <h1 className="text-lg font-bold text-white">{activeWorkout.dayLabel} Day</h1>
+          {activeWorkout.forDate && (
+            <p className="text-emerald-400/80 text-[10px] uppercase tracking-wider font-semibold mt-0.5">
+              Logging for: {new Date(activeWorkout.forDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </p>
+          )}
           <div className="flex items-center gap-1.5 mt-0.5">
             <Timer className="w-3.5 h-3.5 text-emerald-400" />
             <span className="text-emerald-400 text-sm font-mono font-medium">
